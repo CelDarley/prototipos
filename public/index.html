@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Menus</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .menu-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            width: 300px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <h1>Gerenciador de Menus</h1>
+        
+        <button class="btn btn-primary" @click="openModal">Novo Menu</button>
+        
+        <div v-for="menu in menus" :key="menu.id" class="menu-item">
+            <div>
+                <strong>{{ menu.name }}</strong>
+                <br>
+                <a :href="menu.link" target="_blank">{{ menu.link }}</a>
+            </div>
+            <div>
+                <button class="btn btn-primary" @click="editMenu(menu)">Editar</button>
+                <button class="btn btn-danger" @click="deleteMenu(menu.id)">Excluir</button>
+            </div>
+        </div>
+
+        <div class="modal" v-if="showModal" @click.self="closeModal">
+            <div class="modal-content">
+                <h2>{{ isEditing ? 'Editar Menu' : 'Novo Menu' }}</h2>
+                <div class="form-group">
+                    <label>Nome:</label>
+                    <input type="text" v-model="form.name" placeholder="Digite o nome do menu">
+                </div>
+                <div class="form-group">
+                    <label>Link:</label>
+                    <input type="url" v-model="form.link" placeholder="Digite o link do menu">
+                </div>
+                <div style="text-align: right;">
+                    <button class="btn" @click="closeModal">Cancelar</button>
+                    <button class="btn btn-primary" @click="saveMenu">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    menus: [],
+                    showModal: false,
+                    isEditing: false,
+                    form: {
+                        id: null,
+                        name: '',
+                        link: ''
+                    }
+                }
+            },
+            methods: {
+                async loadMenus() {
+                    try {
+                        const response = await axios.get('http://127.0.0.1:8001/api/menus');
+                        console.log('Menus carregados:', response.data);
+                        this.menus = response.data;
+                    } catch (error) {
+                        console.error('Erro ao carregar menus:', error);
+                        alert('Erro ao carregar menus: ' + (error.response?.data?.message || error.message));
+                    }
+                },
+                openModal() {
+                    console.log('Abrindo modal...');
+                    this.isEditing = false;
+                    this.form = { id: null, name: '', link: '' };
+                    this.showModal = true;
+                },
+                editMenu(menu) {
+                    console.log('Editando menu:', menu);
+                    this.isEditing = true;
+                    this.form = { ...menu };
+                    this.showModal = true;
+                },
+                closeModal() {
+                    console.log('Fechando modal...');
+                    this.showModal = false;
+                },
+                async saveMenu() {
+                    if (!this.form.name.trim() || !this.form.link.trim()) {
+                        alert('Por favor, preencha todos os campos');
+                        return;
+                    }
+
+                    try {
+                        if (this.isEditing) {
+                            console.log('Atualizando menu:', this.form);
+                            await axios.put(`http://127.0.0.1:8001/api/menus/${this.form.id}`, this.form);
+                        } else {
+                            console.log('Criando novo menu:', this.form);
+                            await axios.post('http://127.0.0.1:8001/api/menus', this.form);
+                        }
+                        await this.loadMenus();
+                        this.closeModal();
+                    } catch (error) {
+                        console.error('Erro ao salvar menu:', error);
+                        alert('Erro ao salvar menu: ' + (error.response?.data?.message || error.message));
+                    }
+                },
+                async deleteMenu(id) {
+                    if (confirm('Tem certeza que deseja excluir este menu?')) {
+                        try {
+                            console.log('Excluindo menu:', id);
+                            await axios.delete(`http://127.0.0.1:8001/api/menus/${id}`);
+                            await this.loadMenus();
+                        } catch (error) {
+                            console.error('Erro ao excluir menu:', error);
+                            alert('Erro ao excluir menu: ' + (error.response?.data?.message || error.message));
+                        }
+                    }
+                }
+            },
+            mounted() {
+                console.log('Aplicação iniciada');
+                this.loadMenus();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html> 
